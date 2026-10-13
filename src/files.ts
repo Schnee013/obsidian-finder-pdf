@@ -2,8 +2,6 @@ import { constants, promises as fs } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join } from 'node:path';
 import { messagesFor, type Messages } from './i18n.ts';
 
-export type SaveDialog = (defaultPath: string) => Promise<string | null>;
-
 export async function markdownPath(input: string, messages: Messages = messagesFor()): Promise<string> {
   if (!isAbsolute(input) || !/\.(md|markdown)$/i.test(input) || input.includes('\0')) {
     throw new Error(messages.selectMarkdown);
@@ -17,44 +15,17 @@ export function pdfPath(input: string): string {
   return join(dirname(input), basename(input, extname(input)) + '.pdf');
 }
 
-export async function exists(path: string): Promise<boolean> {
-  try { await fs.lstat(path); return true; }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-    throw error;
-  }
-}
-
-async function fingerprint(path: string): Promise<string | null> {
-  try {
-    const s = await fs.lstat(path);
-    return `${s.dev}:${s.ino}:${s.size}:${s.mtimeMs}:${s.ctimeMs}`;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw error;
-  }
-}
-
 /** Never touch the destination until rendering has completed successfully. */
 export async function savePdf(
   source: string,
   render: (temporaryPdf: string) => Promise<void>,
-  ask: SaveDialog,
   messages: Messages = messagesFor(),
-): Promise<string | null> {
+): Promise<string> {
   const initial = pdfPath(source);
-  let destination = initial;
-  let approved: string | null = null;
-  if (await exists(destination)) {
-    const selected = await ask(destination);
-    if (!selected) return null;
-    destination = selected;
-    approved = await fingerprint(destination);
-  }
-  if (extname(destination).toLowerCase() !== '.pdf') throw new Error(messages.saveAsPdf);
-  // Keeping the temporary file on the destination filesystem makes rename atomic.
-  const temporaryDirectory = await fs.mkdtemp(join(dirname(destination), '.finder-pdf-'));
-  const temporaryPdf = join(temporaryDirectory, basename(destination));
+  const directory = dirname(initial);
+  const stem = basename(initial, '.pdf');
+  const temporaryDirectory = await fs.mkdtemp(join(directory, '.finder-pdf-'));
+  const temporaryPdf = join(temporaryDirectory, basename(initial));
   try {
     await render(temporaryPdf);
     const output = await fs.open(temporaryPdf, 'r');
@@ -68,30 +39,14 @@ export async function savePdf(
         throw new Error(messages.incompletePdf);
       }
     } finally { await output.close(); }
-    for (;;) {
-      if (approved !== null && await fingerprint(destination) === approved) {
-        // The native save panel already confirms replacement of its chosen path.
-        // Stage on the chosen filesystem, even when the save panel changes it.
-        const stage = await fs.mkdtemp(join(dirname(destination), '.finder-pdf-'));
-        try {
-          const staged = join(stage, 'output.pdf');
-          await fs.copyFile(temporaryPdf, staged);
-          if (await fingerprint(destination) !== approved) { approved = null; continue; }
-          await fs.rename(staged, destination);
-        } finally { await fs.rm(stage, { recursive: true, force: true }); }
-        return destination;
-      }
+    for (let number = 0; ; number++) {
+      const destination = number === 0 ? initial : join(directory, `${stem}(${number}).pdf`);
       try {
-        // Exclusive copy also handles a file appearing after the initial check.
+        // Exclusive creation handles existing names and concurrent exports alike.
         await fs.copyFile(temporaryPdf, destination, constants.COPYFILE_EXCL);
         return destination;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        const selected = await ask(destination);
-        if (!selected) return null;
-        if (extname(selected).toLowerCase() !== '.pdf') throw new Error(messages.saveAsPdf);
-        destination = selected;
-        approved = await fingerprint(destination);
       }
     }
   } finally {

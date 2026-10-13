@@ -5,15 +5,6 @@ import { markdownPath, savePdf } from './files';
 import { renderNative } from './native';
 import { messagesFor } from './i18n';
 
-interface ElectronWindow { focus(): void; }
-
-interface ElectronDialog {
-  showSaveDialog(window: ElectronWindow, options: {
-    defaultPath: string;
-    filters: { name: string; extensions: string[] }[];
-  }): Promise<{ canceled: boolean; filePath?: string }>;
-}
-
 type UriAction = { action?: string; source?: string; [key: string]: unknown };
 type UriDispatch = (params: UriAction) => void;
 
@@ -67,7 +58,7 @@ export default class FinderPdf extends Plugin {
 
   onunload(): void { this.stopped = true; }
 
-  async exportFile(input: string): Promise<string | null> {
+  async exportFile(input: string): Promise<string> {
     const messages = messagesFor(getLanguage());
     const source = await markdownPath(input, messages);
     const physical = await realpath(source);
@@ -80,21 +71,6 @@ export default class FinderPdf extends Plugin {
     const file = (isInside ? this.app.vault.getFileByPath(inside) : null)
       ?? this.app.vault.getFileByPath(`file:${physical}`);
     if (!(file instanceof TFile)) throw new Error(messages.cannotReadFile);
-    const remote = (require('electron') as { remote: {
-      dialog: ElectronDialog; getCurrentWindow(): ElectronWindow;
-      app: { focus(options: { steal: boolean }): void };
-    } }).remote;
-    const result = await savePdf(source, path => renderNative(this.app, file, path, messages), async defaultPath => {
-      // A Finder action runs in the background; a conflict needs an active app.
-      remote.app.focus({ steal: true });
-      const window = remote.getCurrentWindow();
-      window.focus();
-      const result = await remote.dialog.showSaveDialog(window, {
-        defaultPath,
-        filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      });
-      return result.canceled ? null : result.filePath ?? null;
-    }, messages);
-    return result;
+    return savePdf(source, path => renderNative(this.app, file, path, messages), messages);
   }
 }

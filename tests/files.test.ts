@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
+import { mkdtemp, mkdir, readFile, readlink, writeFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { markdownPath, pdfPath, savePdf } from '../src/files.ts';
@@ -8,7 +9,10 @@ import { messagesFor } from '../src/i18n.ts';
 
 const bytes = '%PDF-1.7\nfixture\n%%EOF\n';
 const render = async (path: string) => { await writeFile(path, bytes); };
-const noDialog = async (): Promise<null> => { throw new Error('Unexpected save dialog'); };
+
+function numbered(path: string, number: number): string {
+  return path.slice(0, -4) + `(${number}).pdf`;
+}
 
 async function fixture(t: { after(fn: () => Promise<void>): void }) {
   const dir = await mkdtemp(join(tmpdir(), 'finder-pdf-test-'));
@@ -21,62 +25,108 @@ async function fixture(t: { after(fn: () => Promise<void>): void }) {
 test('exports beside an arbitrary Markdown file, without a dialog or source changes', async t => {
   const { dir, source, target } = await fixture(t);
   assert.equal(await markdownPath(source), source);
-  assert.equal(await savePdf(source, render, noDialog), target);
+  assert.equal(await savePdf(source, render), target);
   assert.equal(await readFile(target, 'utf8'), bytes);
   assert.equal(await readFile(source, 'utf8'), '# original');
   assert.equal((await readdir(dir)).length, 2);
 });
 
-test('cancelling a conflict leaves the existing PDF unchanged and skips rendering', async t => {
+test('an existing PDF is preserved and the export is saved with number one', async t => {
   const { source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
-  assert.equal(await savePdf(source, async () => { throw new Error('Must not render'); }, async p => {
-    assert.equal(p, target); return null;
-  }), null);
+  assert.equal(await savePdf(source, render), numbered(target, 1));
   assert.equal(await readFile(target, 'utf8'), 'old PDF');
+  assert.equal(await readFile(numbered(target, 1), 'utf8'), bytes);
 });
 
-test('renaming in the system dialog preserves the original PDF', async t => {
-  const { dir, source, target } = await fixture(t);
-  await writeFile(target, 'old PDF');
-  const renamed = join(dir, '新名字.pdf');
-  assert.equal(await savePdf(source, render, async () => renamed), renamed);
-  assert.equal(await readFile(target, 'utf8'), 'old PDF');
-  assert.equal(await readFile(renamed, 'utf8'), bytes);
-});
-
-test('system-confirmed replacement writes the generated PDF', async t => {
+test('chooses the first free number in ascending order, including gaps', async t => {
   const { source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
-  await savePdf(source, render, async () => target);
+  await writeFile(numbered(target, 1), 'old number one');
+  await writeFile(numbered(target, 3), 'old number three');
+  assert.equal(await savePdf(source, render), numbered(target, 2));
+  assert.equal(await readFile(target, 'utf8'), 'old PDF');
+  assert.equal(await readFile(numbered(target, 1), 'utf8'), 'old number one');
+  assert.equal(await readFile(numbered(target, 3), 'utf8'), 'old number three');
+  assert.equal(await readFile(numbered(target, 2), 'utf8'), bytes);
+});
+
+test('uses the unnumbered name when free, even if numbered copies exist', async t => {
+  const { source, target } = await fixture(t);
+  await writeFile(numbered(target, 1), 'old number one');
+  assert.equal(await savePdf(source, render), target);
   assert.equal(await readFile(target, 'utf8'), bytes);
+  assert.equal(await readFile(numbered(target, 1), 'utf8'), 'old number one');
+});
+
+test('repeated exports keep all previous PDFs', async t => {
+  const { dir, source, target } = await fixture(t);
+  for (let number = 0; number < 4; number++) {
+    const expected = number === 0 ? target : numbered(target, number);
+    assert.equal(await savePdf(source, render), expected);
+    assert.equal(await readFile(expected, 'utf8'), bytes);
+  }
+  assert.equal((await readdir(dir)).length, 5);
+  assert.equal(await readFile(source, 'utf8'), '# original');
+});
+
+test('preserves parentheses and numbers in the original Markdown name', async t => {
+  const { dir } = await fixture(t);
+  const source = join(dir, 'draft(4).markdown');
+  await writeFile(source, '# draft');
+  const target = join(dir, 'draft(4).pdf');
+  await writeFile(target, 'old PDF');
+  assert.equal(await savePdf(source, render), join(dir, 'draft(4)(1).pdf'));
+  assert.equal(await readFile(target, 'utf8'), 'old PDF');
+});
+
+test('skips names occupied by directories, symlinks, and dangling symlinks', async t => {
+  const { dir, source, target } = await fixture(t);
+  const existing = join(dir, 'existing.pdf');
+  const missing = join(dir, 'missing.pdf');
+  await writeFile(existing, 'linked PDF');
+  await symlink(existing, target);
+  await mkdir(numbered(target, 1));
+  await symlink(missing, numbered(target, 2));
+  assert.equal(await savePdf(source, render), numbered(target, 3));
+  assert.equal(await readlink(target), existing);
+  assert.equal(await readlink(numbered(target, 2)), missing);
+  assert.equal(await readFile(existing, 'utf8'), 'linked PDF');
+  assert.equal(await readFile(numbered(target, 3), 'utf8'), bytes);
+  await assert.rejects(readFile(missing), { code: 'ENOENT' });
 });
 
 test('a render failure preserves the original and cleans temporary files', async t => {
   const { dir, source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
-  await assert.rejects(savePdf(source, async p => { await writeFile(p, 'partial'); throw new Error('render failed'); }, async () => target));
+  await assert.rejects(savePdf(source, async p => { await writeFile(p, 'partial'); throw new Error('render failed'); }));
   assert.equal(await readFile(target, 'utf8'), 'old PDF');
   assert.equal((await readdir(dir)).length, 2);
 });
 
-test('rejects missing or invalid native output without replacing anything', async t => {
-  const { source, target } = await fixture(t);
+test('rejects missing or invalid output without saving a numbered PDF', async t => {
+  const { dir, source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
-  await assert.rejects(savePdf(source, async () => {}, async () => target));
-  await assert.rejects(savePdf(source, async p => { await writeFile(p, 'not a PDF'); }, async () => target));
-  await assert.rejects(savePdf(source, async p => { await writeFile(p, '%PDF-1.7\ntruncated'); }, async () => target));
+  await assert.rejects(savePdf(source, async () => {}));
+  await assert.rejects(savePdf(source, async p => { await writeFile(p, 'not a PDF'); }));
+  await assert.rejects(savePdf(source, async p => { await writeFile(p, '%PDF-1.7\ntruncated'); }));
   assert.equal(await readFile(target, 'utf8'), 'old PDF');
+  assert.equal((await readdir(dir)).length, 2);
 });
 
-test('a PDF appearing during rendering triggers a conflict instead of overwriting', async t => {
+test('files appearing during rendering are preserved and numbering continues', async t => {
   const { source, target } = await fixture(t);
-  let dialogs = 0;
+  let renders = 0;
   assert.equal(await savePdf(source, async p => {
-    await render(p); await writeFile(target, 'concurrent PDF');
-  }, async () => { dialogs++; return null; }), null);
-  assert.equal(dialogs, 1);
+    renders++;
+    await render(p);
+    await writeFile(target, 'concurrent PDF');
+    await writeFile(numbered(target, 1), 'concurrent number one');
+  }), numbered(target, 2));
+  assert.equal(renders, 1);
   assert.equal(await readFile(target, 'utf8'), 'concurrent PDF');
+  assert.equal(await readFile(numbered(target, 1), 'utf8'), 'concurrent number one');
+  assert.equal(await readFile(numbered(target, 2), 'utf8'), bytes);
 });
 
 test('rejects relative paths, non-Markdown files, and directories', async t => {
@@ -89,27 +139,41 @@ test('rejects relative paths, non-Markdown files, and directories', async t => {
   await assert.rejects(markdownPath(directory));
 });
 
-test('does not overwrite a newly chosen filename if it appears while rendering', async t => {
+test('concurrent exports use distinct numbers without rerendering or overwriting', async t => {
   const { dir, source, target } = await fixture(t);
-  const renamed = join(dir, 'new.pdf');
   await writeFile(target, 'old PDF');
-  let dialogs = 0;
-  assert.equal(await savePdf(source, async p => {
-    await render(p); await writeFile(renamed, 'concurrent PDF');
-  }, async () => ++dialogs === 1 ? renamed : null), null);
-  assert.equal(dialogs, 2);
-  assert.equal(await readFile(renamed, 'utf8'), 'concurrent PDF');
+  await writeFile(numbered(target, 1), 'old number one');
+  const count = 8;
+  let renders = 0;
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  const results = await Promise.all(Array.from({ length: count }, async (_, index) => {
+    const content = `%PDF-1.7\nexport ${index}\n%%EOF\n`;
+    const path = await savePdf(source, async temporary => {
+      await writeFile(temporary, content);
+      if (++renders === count) release();
+      await ready;
+    });
+    return { path, content };
+  }));
+  assert.equal(renders, count);
+  assert.deepEqual(results.map(result => result.path).sort(),
+    Array.from({ length: count }, (_, index) => numbered(target, index + 2)).sort());
+  for (const result of results) assert.equal(await readFile(result.path, 'utf8'), result.content);
+  assert.equal(await readFile(target, 'utf8'), 'old PDF');
+  assert.equal(await readFile(numbered(target, 1), 'utf8'), 'old number one');
+  assert.equal(await readFile(source, 'utf8'), '# original');
+  assert.equal((await readdir(dir)).length, count + 3);
 });
 
-test('asks again if a confirmed destination changes before rendering completes', async t => {
-  const { source, target } = await fixture(t);
+test('a copy failure is reported and temporary output is removed', async t => {
+  const { dir, source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
-  let dialogs = 0;
-  assert.equal(await savePdf(source, async p => {
-    await render(p); await writeFile(target, 'changed while printing');
-  }, async () => ++dialogs === 1 ? target : null), null);
-  assert.equal(dialogs, 2);
-  assert.equal(await readFile(target, 'utf8'), 'changed while printing');
+  const failure = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+  t.mock.method(fs, 'copyFile', async () => { throw failure; });
+  await assert.rejects(savePdf(source, render), error => error === failure);
+  assert.equal(await readFile(target, 'utf8'), 'old PDF');
+  assert.equal((await readdir(dir)).length, 2);
 });
 
 const localizedErrors = [
@@ -117,14 +181,12 @@ const localizedErrors = [
     languages: ['en', 'en-US', 'de', '', 'zhx'],
     selectMarkdown: 'Please select a Markdown file.',
     notAFile: 'The selected item is not a file.',
-    saveAsPdf: 'Please save the file with a .pdf extension.',
     incompletePdf: 'Obsidian did not generate a complete PDF.',
   },
   {
     languages: ['zh', 'zh-CN', 'zh_TW', 'ZH-Hans'],
     selectMarkdown: '请选择 Markdown 文件。',
     notAFile: '所选项目不是文件。',
-    saveAsPdf: '请保存为 PDF 文件。',
     incompletePdf: 'Obsidian 未能生成完整的 PDF。',
   },
 ];
@@ -139,11 +201,8 @@ for (const expected of localizedErrors) {
       await mkdir(directory);
       await assert.rejects(markdownPath(directory, messages), { message: expected.notAFile });
       await writeFile(target, 'old PDF');
-      await assert.rejects(savePdf(source, render, async () => join(dir, 'new.txt'), messages), {
-        message: expected.saveAsPdf,
-      });
       await assert.rejects(savePdf(source, async p => { await writeFile(p, '%PDF-1.7\ntruncated'); },
-        async () => target, messages), { message: expected.incompletePdf });
+        messages), { message: expected.incompletePdf });
       assert.equal(await readFile(target, 'utf8'), 'old PDF');
       assert.equal(await readFile(source, 'utf8'), '# original');
       assert.deepEqual((await readdir(dir)).sort(), [

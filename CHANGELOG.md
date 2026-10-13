@@ -2,7 +2,10 @@
 
 Versions follow [Semantic Versioning](https://semver.org/). During `0.x`, compatibility is described in each release's notes.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-13
+
+- Save filename conflicts as `name(1).pdf`, `name(2).pdf`, and so on, using the first available number without opening a save dialog.
+- Preserve existing files and handle concurrent exports with exclusive file creation, reusing the rendered PDF when names collide.
 
 - Follow Obsidian's app language for plugin messages, with Chinese support and an English fallback.
 - Generate an English Finder menu entry by default; use `--language zh` to keep the Chinese entry.
@@ -21,3 +24,4 @@ First public release.
 Supported environments, cold-start window behavior, and internal API limitations are described in the [README](README.md#compatibility-and-limitations).
 
 [0.1.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.1.0
+[0.2.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.0

@@ -10,7 +10,10 @@ from urllib.parse import quote
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--vault', required=True, help='Obsidian vault ID or name')
 parser.add_argument('--output', type=Path, required=True, help='Destination .workflow bundle')
+parser.add_argument('--language', choices=['en', 'zh'], default='en',
+                    help='Finder menu language: English (default) or Chinese')
 args = parser.parse_args()
+menu_name = {'en': 'Export PDF with Obsidian', 'zh': '用 Obsidian 导出 PDF'}[args.language]
 manifest = json.loads((Path(__file__).resolve().parent.parent / 'manifest.json').read_text())
 if args.output.suffix != '.workflow':
     parser.error('--output must end in .workflow')
@@ -62,10 +65,10 @@ workflow = {
 info = {
     'CFBundleIdentifier': 'community.finder-pdf.quick-action',
     'CFBundleName': 'Finder PDF',
-    'CFBundleDevelopmentRegion': 'en',
+    'CFBundleDevelopmentRegion': args.language,
     'CFBundleShortVersionString': manifest['version'],
     'NSServices': [{
-    'NSMenuItem': {'default': '用 Obsidian 导出 PDF'},
+    'NSMenuItem': {'default': menu_name},
     'NSMessage': 'runWorkflowAsService', 'NSIconName': 'NSActionTemplate',
     'NSRequiredContext': {'NSApplicationIdentifier': 'com.apple.finder'},
     'NSSendFileTypes': ['net.daringfireball.markdown'],

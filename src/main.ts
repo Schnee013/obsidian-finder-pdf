@@ -1,8 +1,9 @@
-import { FileSystemAdapter, Notice, Platform, Plugin, TFile } from 'obsidian';
+import { FileSystemAdapter, getLanguage, Notice, Platform, Plugin, TFile } from 'obsidian';
 import { realpath } from 'node:fs/promises';
 import { isAbsolute, relative, sep } from 'node:path';
 import { markdownPath, savePdf } from './files';
 import { renderNative } from './native';
+import { messagesFor } from './i18n';
 
 interface ElectronWindow { focus(): void; }
 
@@ -31,7 +32,7 @@ export default class FinderPdf extends Plugin {
           try { await this.exportFile(source); }
           catch (error) {
             console.error('Finder PDF:', error);
-            new Notice(`PDF 导出失败：${error instanceof Error ? error.message : String(error)}`);
+            new Notice(`${messagesFor(getLanguage()).exportFailed}${error instanceof Error ? error.message : String(error)}`);
           }
         });
       });
@@ -67,22 +68,23 @@ export default class FinderPdf extends Plugin {
   onunload(): void { this.stopped = true; }
 
   async exportFile(input: string): Promise<string | null> {
-    const source = await markdownPath(input);
+    const messages = messagesFor(getLanguage());
+    const source = await markdownPath(input, messages);
     const physical = await realpath(source);
     const adapter = this.app.vault.adapter;
-    if (!(adapter instanceof FileSystemAdapter)) throw new Error('仅支持 macOS 本地仓库。');
+    if (!(adapter instanceof FileSystemAdapter)) throw new Error(messages.localVaultOnly);
     const root = await realpath(adapter.getBasePath());
     const inside = relative(root, physical);
     const isInside = inside !== '..' && !inside.startsWith(`..${sep}`) && !isAbsolute(inside);
     // Obsidian 1.14.4 represents external files as file:<absolute native path>.
     const file = (isInside ? this.app.vault.getFileByPath(inside) : null)
       ?? this.app.vault.getFileByPath(`file:${physical}`);
-    if (!(file instanceof TFile)) throw new Error('Obsidian 无法读取该文件，需要 1.14.4 或更高版本。');
+    if (!(file instanceof TFile)) throw new Error(messages.cannotReadFile);
     const remote = (require('electron') as { remote: {
       dialog: ElectronDialog; getCurrentWindow(): ElectronWindow;
       app: { focus(options: { steal: boolean }): void };
     } }).remote;
-    const result = await savePdf(source, path => renderNative(this.app, file, path), async defaultPath => {
+    const result = await savePdf(source, path => renderNative(this.app, file, path, messages), async defaultPath => {
       // A Finder action runs in the background; a conflict needs an active app.
       remote.app.focus({ steal: true });
       const window = remote.getCurrentWindow();
@@ -92,7 +94,7 @@ export default class FinderPdf extends Plugin {
         filters: [{ name: 'PDF', extensions: ['pdf'] }],
       });
       return result.canceled ? null : result.filePath ?? null;
-    });
+    }, messages);
     return result;
   }
 }

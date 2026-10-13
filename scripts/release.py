@@ -29,7 +29,7 @@ license_text = (root / 'LICENSE').read_text().strip()
 if license_text not in (root / 'main.js').read_text():
     raise SystemExit('Build main.js with the full license notice before packaging.')
 
-files = ['main.js', 'manifest.json', 'LICENSE', 'README.md', 'scripts/finder-action.py']
+files = ['main.js', 'manifest.json', 'LICENSE', 'README.md', 'README.zh-CN.md', 'scripts/finder-action.py']
 output = root / 'dist'
 output.mkdir(exist_ok=True)
 for name in ['main.js', 'manifest.json']:

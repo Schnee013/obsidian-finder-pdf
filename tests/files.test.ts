@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { markdownPath, pdfPath, savePdf } from '../src/files.ts';
+import { messagesFor } from '../src/i18n.ts';
 
 const bytes = '%PDF-1.7\nfixture\n%%EOF\n';
 const render = async (path: string) => { await writeFile(path, bytes); };
@@ -110,3 +111,44 @@ test('asks again if a confirmed destination changes before rendering completes',
   assert.equal(dialogs, 2);
   assert.equal(await readFile(target, 'utf8'), 'changed while printing');
 });
+
+const localizedErrors = [
+  {
+    languages: ['en', 'en-US', 'de', '', 'zhx'],
+    selectMarkdown: 'Please select a Markdown file.',
+    notAFile: 'The selected item is not a file.',
+    saveAsPdf: 'Please save the file with a .pdf extension.',
+    incompletePdf: 'Obsidian did not generate a complete PDF.',
+  },
+  {
+    languages: ['zh', 'zh-CN', 'zh_TW', 'ZH-Hans'],
+    selectMarkdown: '请选择 Markdown 文件。',
+    notAFile: '所选项目不是文件。',
+    saveAsPdf: '请保存为 PDF 文件。',
+    incompletePdf: 'Obsidian 未能生成完整的 PDF。',
+  },
+];
+
+for (const expected of localizedErrors) {
+  for (const language of expected.languages) {
+    test(`validation and failed saves use localized messages for ${language || 'an unset language'}`, async t => {
+      const { dir, source, target } = await fixture(t);
+      const messages = messagesFor(language);
+      await assert.rejects(markdownPath('relative.md', messages), { message: expected.selectMarkdown });
+      const directory = join(dir, 'directory.md');
+      await mkdir(directory);
+      await assert.rejects(markdownPath(directory, messages), { message: expected.notAFile });
+      await writeFile(target, 'old PDF');
+      await assert.rejects(savePdf(source, render, async () => join(dir, 'new.txt'), messages), {
+        message: expected.saveAsPdf,
+      });
+      await assert.rejects(savePdf(source, async p => { await writeFile(p, '%PDF-1.7\ntruncated'); },
+        async () => target, messages), { message: expected.incompletePdf });
+      assert.equal(await readFile(target, 'utf8'), 'old PDF');
+      assert.equal(await readFile(source, 'utf8'), '# original');
+      assert.deepEqual((await readdir(dir)).sort(), [
+        'directory.md', source.slice(dir.length + 1), target.slice(dir.length + 1),
+      ].sort());
+    });
+  }
+}

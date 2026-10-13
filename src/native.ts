@@ -1,4 +1,5 @@
 import { App, finishRenderMath, MarkdownView, Modal, TFile, type Component } from 'obsidian';
+import { messagesFor, type Messages } from './i18n';
 
 interface NativePdfModal extends Modal {
   file: TFile;
@@ -7,9 +8,9 @@ interface NativePdfModal extends Modal {
 }
 
 /** The native PDF exporter is not in Obsidian's public plugin API. */
-function captureExporter(app: App, file: TFile): NativePdfModal {
+function captureExporter(app: App, file: TFile, messages: Messages): NativePdfModal {
   const invoke = (MarkdownView.prototype as unknown as { printToPdf?: () => void }).printToPdf;
-  if (typeof invoke !== 'function') throw new Error('当前 Obsidian 版本的原生 PDF 接口不可用。');
+  if (typeof invoke !== 'function') throw new Error(messages.nativePdfUnavailable);
   let captured: NativePdfModal | undefined;
   const originalOpen = Modal.prototype.open;
   // A synchronous, narrowly scoped hook: restored before any async work begins.
@@ -21,12 +22,12 @@ function captureExporter(app: App, file: TFile): NativePdfModal {
   };
   try { invoke.call({ app, file }); }
   finally { Modal.prototype.open = originalOpen; }
-  if (!captured) throw new Error('未找到原生 PDF 导出接口，请检查 Obsidian 版本。');
+  if (!captured) throw new Error(messages.nativePdfNotFound);
   return captured;
 }
 
-export async function renderNative(app: App, file: TFile, filepath: string): Promise<void> {
-  const modal = captureExporter(app, file);
+export async function renderNative(app: App, file: TFile, filepath: string, messages: Messages = messagesFor()): Promise<void> {
+  const modal = captureExporter(app, file, messages);
   const print = modal.print;
   modal.print = async function (container, component, includeName) {
     const result = await print.call(this, container, component, includeName);

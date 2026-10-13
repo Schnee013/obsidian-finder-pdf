@@ -1,14 +1,15 @@
 import { constants, promises as fs } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join } from 'node:path';
+import { messagesFor, type Messages } from './i18n.ts';
 
 export type SaveDialog = (defaultPath: string) => Promise<string | null>;
 
-export async function markdownPath(input: string): Promise<string> {
+export async function markdownPath(input: string, messages: Messages = messagesFor()): Promise<string> {
   if (!isAbsolute(input) || !/\.(md|markdown)$/i.test(input) || input.includes('\0')) {
-    throw new Error('请选择 Markdown 文件。');
+    throw new Error(messages.selectMarkdown);
   }
   const stat = await fs.stat(input);
-  if (!stat.isFile()) throw new Error('所选项目不是文件。');
+  if (!stat.isFile()) throw new Error(messages.notAFile);
   return input;
 }
 
@@ -39,6 +40,7 @@ export async function savePdf(
   source: string,
   render: (temporaryPdf: string) => Promise<void>,
   ask: SaveDialog,
+  messages: Messages = messagesFor(),
 ): Promise<string | null> {
   const initial = pdfPath(source);
   let destination = initial;
@@ -49,7 +51,7 @@ export async function savePdf(
     destination = selected;
     approved = await fingerprint(destination);
   }
-  if (extname(destination).toLowerCase() !== '.pdf') throw new Error('请保存为 PDF 文件。');
+  if (extname(destination).toLowerCase() !== '.pdf') throw new Error(messages.saveAsPdf);
   // Keeping the temporary file on the destination filesystem makes rename atomic.
   const temporaryDirectory = await fs.mkdtemp(join(dirname(destination), '.finder-pdf-'));
   const temporaryPdf = join(temporaryDirectory, basename(destination));
@@ -63,7 +65,7 @@ export async function savePdf(
       const trailer = Buffer.alloc(Math.min(1024, size));
       await output.read(trailer, 0, trailer.length, size - trailer.length);
       if (header.toString() !== '%PDF-' || !/%%EOF\s*$/.test(trailer.toString())) {
-        throw new Error('Obsidian 未能生成完整的 PDF。');
+        throw new Error(messages.incompletePdf);
       }
     } finally { await output.close(); }
     for (;;) {
@@ -87,7 +89,7 @@ export async function savePdf(
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
         const selected = await ask(destination);
         if (!selected) return null;
-        if (extname(selected).toLowerCase() !== '.pdf') throw new Error('请保存为 PDF 文件。');
+        if (extname(selected).toLowerCase() !== '.pdf') throw new Error(messages.saveAsPdf);
         destination = selected;
         approved = await fingerprint(destination);
       }

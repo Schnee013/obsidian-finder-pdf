@@ -12,7 +12,7 @@ function captureExporter(app: App, file: TFile, messages: Messages): NativePdfMo
   const invoke = (MarkdownView.prototype as unknown as { printToPdf?: () => void }).printToPdf;
   if (typeof invoke !== 'function') throw new Error(messages.nativePdfUnavailable);
   let captured: NativePdfModal | undefined;
-  const originalOpen = Modal.prototype.open;
+  const originalOpen = (Modal.prototype as { open: (this: Modal) => void }).open;
   // A synchronous, narrowly scoped hook: restored before any async work begins.
   Modal.prototype.open = function () {
     const candidate = this as NativePdfModal;
@@ -28,16 +28,16 @@ function captureExporter(app: App, file: TFile, messages: Messages): NativePdfMo
 
 export async function renderNative(app: App, file: TFile, filepath: string, messages: Messages = messagesFor()): Promise<void> {
   const modal = captureExporter(app, file, messages);
-  const print = modal.print;
-  modal.print = async function (container, component, includeName) {
-    const result = await print.call(this, container, component, includeName);
+  const print = modal.print.bind(modal);
+  modal.print = async (container, component, includeName) => {
+    const result = await print(container, component, includeName);
     if (container.querySelector('mjx-container')) {
       // The print window clones styles before the first formula loads MathJax.
       await finishRenderMath();
       const mathStyle = document.getElementById('MJX-CHTML-styles') as HTMLStyleElement | null;
       if (mathStyle?.sheet) {
         const target = container.ownerDocument;
-        const style = target.getElementById(mathStyle.id) ?? target.head.appendChild(target.createElement('style'));
+        const style = target.getElementById(mathStyle.id) ?? createEl('style', { parent: target.head });
         style.id = mathStyle.id;
         style.textContent = Array.from(mathStyle.sheet.cssRules, rule => rule.cssText).join('\n');
       }

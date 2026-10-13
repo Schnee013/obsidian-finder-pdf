@@ -7,6 +7,7 @@ Versions follow [Semantic Versioning](https://semver.org/). During `0.x`, compat
 - Add Obsidian community-directory search, installation, update, and Finder setup instructions in English and Chinese.
 - Build release assets on GitHub Actions and attach verifiable build provenance to the plugin files and manual installation package.
 - Clarify why Finder export accesses files outside the vault and why the release includes manual-installation assets that Obsidian does not download.
+- Make the native export callbacks' receivers explicit and use Obsidian's element helper for print-document math styles.
 - Keep the automatic numbered saves and native PDF rendering introduced in 0.2.0.
 
 ## [0.2.0] - 2026-10-13

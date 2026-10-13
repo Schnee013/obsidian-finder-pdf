@@ -1,0 +1,34 @@
+{
+  "name": "finder-pdf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Export Markdown from Finder using Obsidian's native PDF export.",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --noEmit && node esbuild.config.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.ts && python3 -m unittest discover -s tests -p 'test_*.py'",
+    "package": "npm run build && python3 scripts/release.py"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "1.14.4",
+    "typescript": "^5.9.0"
+  },
+  "author": {
+    "name": "Schnee013",
+    "url": "https://github.com/Schnee013"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Schnee013/obsidian-finder-pdf.git"
+  },
+  "homepage": "https://github.com/Schnee013/obsidian-finder-pdf#readme",
+  "bugs": {
+    "url": "https://github.com/Schnee013/obsidian-finder-pdf/issues"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}

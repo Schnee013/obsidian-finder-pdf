@@ -1,6 +1,6 @@
 {
   "name": "finder-pdf",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Export Markdown from Finder using Obsidian's native PDF export.",

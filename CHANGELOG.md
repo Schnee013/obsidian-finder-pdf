@@ -2,6 +2,13 @@
 
 Versions follow [Semantic Versioning](https://semver.org/). During `0.x`, compatibility is described in each release's notes.
 
+## [0.2.1] - 2026-10-13
+
+- Add Obsidian community-directory search, installation, update, and Finder setup instructions in English and Chinese.
+- Build release assets on GitHub Actions and attach verifiable build provenance to the plugin files and manual installation package.
+- Clarify why Finder export accesses files outside the vault and why the release includes manual-installation assets that Obsidian does not download.
+- Keep the automatic numbered saves and native PDF rendering introduced in 0.2.0.
+
 ## [0.2.0] - 2026-10-13
 
 - Save filename conflicts as `name(1).pdf`, `name(2).pdf`, and so on, using the first available number without opening a save dialog.
@@ -25,3 +32,4 @@ Supported environments, cold-start window behavior, and internal API limitations
 
 [0.1.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.1.0
 [0.2.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.0
+[0.2.1]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.1

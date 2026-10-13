@@ -15,18 +15,34 @@ The plugin provides one Finder entry, with no settings page, standalone app, add
 
 Requires macOS, Obsidian **1.14.4+**, and a local vault where community plugins can be enabled. Python 3 is needed to generate the Finder Quick Action; routine exports do not require Python or Node.js.
 
+### Install from Obsidian (0.2.1+)
+
+Starting with `0.2.1`, the preferred installation route is the [Obsidian community directory](https://community.obsidian.md/plugins/finder-pdf). A release must complete the directory's review and be published before it becomes installable in Obsidian. If Finder PDF does not appear in search yet, use the manual alternative below.
+
+1. Open **Settings → Community plugins** in the vault you want to use for PDF rendering. Turn on community plugins if needed.
+2. Select **Browse** and search for **Finder PDF**.
+3. Open the Finder PDF entry for `Schnee013/obsidian-finder-pdf`, select **Install**, then **Enable**.
+4. Continue with **Set up the Finder Quick Action** below. Installing the plugin does not create the macOS Finder action.
+
+### Manual alternative
+
 1. Download `finder-pdf-VERSION.zip` from [GitHub Releases](https://github.com/Schnee013/obsidian-finder-pdf/releases) and extract it.
 2. Place the `finder-pdf` folder in the target vault's `.obsidian/plugins/` directory. Replace `.obsidian` if your vault uses a custom configuration folder.
-3. Enable **Finder PDF** in Obsidian's community plugin settings. The project is not yet listed in the Obsidian community plugin directory, so installation is currently manual.
-4. In the package's `finder-pdf` folder, run the following command. Replace `Your Vault Name` with the name of the vault where you enabled the plugin; use a vault ID if names are ambiguous.
+3. Enable **Finder PDF** in Obsidian's community plugin settings.
+
+### Set up the Finder Quick Action
+
+For either installation method, download and extract the ZIP from the matching [GitHub release](https://github.com/Schnee013/obsidian-finder-pdf/releases) to obtain the setup script. If you installed from Obsidian, use the ZIP's script without copying its plugin files into the vault again.
+
+1. In the package's `finder-pdf` folder, run the following command. Replace `Your Vault Name` with the name of the vault where you enabled the plugin; use a vault ID if names are ambiguous.
 
 ```sh
 python3 scripts/finder-action.py --vault 'Your Vault Name' \
   --output "$HOME/Library/Services/Export PDF with Obsidian.workflow"
 ```
 
-5. Enable **Export PDF with Obsidian** in macOS **System Settings → General → Login Items & Extensions → Finder**. The location can vary by macOS version.
-6. Select Markdown files in Finder, then right-click → **Quick Actions → Export PDF with Obsidian**. Some macOS versions also list it under **Services**.
+2. Enable **Export PDF with Obsidian** in macOS **System Settings → General → Login Items & Extensions → Finder**. The location can vary by macOS version.
+3. Select Markdown files in Finder, then right-click → **Quick Actions → Export PDF with Obsidian**. Some macOS versions also list it under **Services**.
 
 You can assign a keyboard shortcut, such as `⌃⌥⌘P`, in **System Settings → Keyboard → Keyboard Shortcuts → Services**. The script does not change shortcuts or enable the plugin for you.
 
@@ -34,7 +50,7 @@ Plugin messages follow Obsidian's app language: Chinese languages use Chinese me
 
 The selected vault supplies the theme, CSS, plugin rendering, and PDF export settings. Exporting leaves the source Markdown unchanged. Existing PDFs are preserved: the plugin tries `name.pdf`, then `name(1).pdf`, `name(2).pdf`, and so on until it can create a new file. It uses the first available name, including gaps in the numbered sequence. Concurrent exports retry the next number without rerendering or asking for a filename.
 
-To update, replace the release files in the plugin folder and re-enable the plugin. Rerun the generation script to update the Quick Action. To uninstall, disable and remove the plugin, then delete `~/Library/Services/Export PDF with Obsidian.workflow`, or the workflow path you chose.
+To update a community-directory installation, open **Settings → Community plugins → Check for updates**, then select **Update** beside Finder PDF. For a manual installation, replace the release files in the plugin folder and re-enable the plugin. Rerun the generation script when updating the Quick Action. To uninstall, disable and remove the plugin, then delete `~/Library/Services/Export PDF with Obsidian.workflow`, or the workflow path you chose.
 
 ## Compatibility and limitations
 
@@ -47,6 +63,8 @@ To update, replace the release files in the plugin folder and re-enable the plug
 ## File and network access
 
 The plugin reads external Markdown and its referenced resources in response to Finder requests. It writes a new PDF beside the source, using a numbered name when necessary, then removes the export's temporary files. It does not modify notes, overwrite existing PDFs, scan the whole disk, collect telemetry, use accounts, upload files, or make its own network requests.
+
+The desktop plugin uses Node.js filesystem APIs to validate the requested source path and save PDFs outside the vault. This is necessary for exporting Markdown selected in arbitrary Finder folders; it can trigger the directory's **Direct Filesystem Access** warning. [Obsidian's developer policies](https://docs.obsidian.md/community-directory/developer-policies) allow outside-vault access when its purpose is disclosed.
 
 When a document includes remote images or other resources, Obsidian's native renderer may access those URLs. The plugin preserves Mermaid and third-party rendering plugins' trust and execution permissions.
 
@@ -74,6 +92,7 @@ npm run package
 | [`scripts/release.py`](scripts/release.py) | Version consistency, installation package with both language guides, and SHA-256 checksums |
 | [`tests/`](tests/) | Numbered file saving, concurrent exports, plugin integration, localized errors, and workflow generation checks |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Automated tests, build, and packaging checks on macOS |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | Build release files on main, attest their provenance, and upload them for publication |
 
 The build produces the CommonJS `main.js` loaded by Obsidian. Build output, dependencies, and local configuration are kept out of the source repository. The plugin has no third-party runtime dependencies; it uses the interfaces provided by Obsidian and Node.js/Electron.
 
@@ -94,10 +113,10 @@ Automated checks cover ascending filename numbering, gaps, concurrent exports, o
 Version changes are recorded in [CHANGELOG.md](CHANGELOG.md). To release:
 
 1. Synchronize the version in `manifest.json`, `package.json`, and `package-lock.json`. Maintain the corresponding minimum Obsidian version in `versions.json`, and update the changelog.
-2. Run the checks above, commit the source, and confirm CI passes. The tag must exactly match the manifest version, for example `0.1.0`, without a `v` prefix.
-3. Upload `dist/main.js`, `dist/manifest.json`, `dist/finder-pdf-VERSION.zip`, and `dist/SHA256SUMS` to the GitHub Release. The first two files are for Obsidian downloads. The ZIP also includes the workflow generator, license, and English and Chinese installation guides for manual installation.
+2. Run the checks above, commit and push the source, and confirm CI passes. Run the **Release artifacts** workflow on `main`, download its `finder-pdf-release` artifact, and verify the build attestations before publishing. The tag must exactly match the manifest version, for example `0.2.1`, without a `v` prefix.
+3. Upload the verified `main.js`, `manifest.json`, `finder-pdf-VERSION.zip`, and `SHA256SUMS` to the GitHub Release, targeting the workflow's exact source commit. Obsidian downloads the first two files. The ZIP contains the Finder setup script, license, and both installation guides; the ZIP and checksums are supporting downloads, so the directory may recommend ignoring them for in-app installation.
 
-The package uses fixed file metadata, and checksums let users verify downloads. A future submission to the Obsidian community directory requires a separate review under the [official submission guide](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin), [developer policies](https://docs.obsidian.md/community-directory/developer-policies), and [plugin requirements](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins).
+The package uses fixed file metadata, checksums let users verify downloads, and GitHub build attestations establish the assets' source and build workflow. Release review and publication in the community directory follow the [official submission guide](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin), [developer policies](https://docs.obsidian.md/community-directory/developer-policies), and [plugin requirements](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins).
 
 ## License
 

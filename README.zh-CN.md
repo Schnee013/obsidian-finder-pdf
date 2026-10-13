@@ -15,18 +15,34 @@
 
 要求 macOS、Obsidian **1.14.4+**，以及一个可启用第三方插件的本地仓库。生成 Finder 快速操作时需要 Python 3；日常导出不需要 Python 或 Node.js。
 
+### 在 Obsidian 中安装（0.2.1 起）
+
+从 `0.2.1` 开始，推荐通过 [Obsidian 社区插件目录](https://community.obsidian.md/plugins/finder-pdf)安装。版本须完成目录审核并发布后，才可在 Obsidian 中安装。如果搜索暂时找不到 Finder PDF，可使用下方的手动安装方式。
+
+1. 在用于 PDF 渲染的仓库中打开 **设置 → 第三方插件**，按需启用第三方插件。
+2. 点击 **浏览**，搜索 **Finder PDF**。
+3. 打开对应 `Schnee013/obsidian-finder-pdf` 仓库的 Finder PDF 条目，点击 **安装**，然后 **启用**。
+4. 继续完成下方的 **生成 Finder 快速操作**。安装插件不会自动创建 macOS Finder 入口。
+
+### 手动安装备选
+
 1. 从 [GitHub Releases](https://github.com/Schnee013/obsidian-finder-pdf/releases) 下载 `finder-pdf-版本号.zip` 并解压。
 2. 把其中的 `finder-pdf` 文件夹放到目标仓库的 `.obsidian/plugins/` 中。若仓库使用自定义配置目录，请替换 `.obsidian`。
-3. 在 Obsidian 的第三方插件设置中启用 **Finder PDF**。当前项目尚未上架 Obsidian 社区插件目录，先采用手动安装。
-4. 在安装包的 `finder-pdf` 文件夹内运行下面的命令，把 `你的仓库名称` 改为启用了插件的仓库名称；同名仓库可使用仓库 ID。
+3. 在 Obsidian 的第三方插件设置中启用 **Finder PDF**。
+
+### 生成 Finder 快速操作
+
+两种安装方式都需要下载并解压相应 [GitHub Release](https://github.com/Schnee013/obsidian-finder-pdf/releases) 的 ZIP，以取得生成脚本。若已通过 Obsidian 安装插件，只需使用 ZIP 中的脚本，无须再把其中的插件文件复制到仓库。
+
+1. 在安装包的 `finder-pdf` 文件夹内运行下面的命令，把 `你的仓库名称` 改为启用了插件的仓库名称；同名仓库可使用仓库 ID。
 
 ```sh
 python3 scripts/finder-action.py --vault '你的仓库名称' --language zh \
   --output "$HOME/Library/Services/用 Obsidian 导出 PDF.workflow"
 ```
 
-5. 在 macOS“系统设置 → 通用 → 登录项与扩展 → Finder”中启用“用 Obsidian 导出 PDF”。不同 macOS 版本的设置位置可能稍有差异。
-6. 在 Finder 中选中 Markdown 文件，右键 → **快速操作 → 用 Obsidian 导出 PDF**。部分系统版本也会把它列在“服务”中。
+2. 在 macOS“系统设置 → 通用 → 登录项与扩展 → Finder”中启用“用 Obsidian 导出 PDF”。不同 macOS 版本的设置位置可能稍有差异。
+3. 在 Finder 中选中 Markdown 文件，右键 → **快速操作 → 用 Obsidian 导出 PDF**。部分系统版本也会把它列在“服务”中。
 
 可在“系统设置 → 键盘 → 键盘快捷键 → 服务”中给这个操作设置快捷键，例如 `⌃⌥⌘P`。安装脚本不会修改快捷键或替你启用插件。
 
@@ -34,7 +50,7 @@ python3 scripts/finder-action.py --vault '你的仓库名称' --language zh \
 
 选定的 Obsidian 仓库提供主题、CSS、插件渲染和 PDF 导出设置。导出不修改源 Markdown，也不覆盖已有 PDF：插件依次尝试 `name.pdf`、`name(1).pdf`、`name(2).pdf`，保存到第一个可用名称。编号序列中有空位时优先使用空位。并发导出遇到重名时继续尝试下一个编号，无须重新渲染或输入文件名。
 
-更新时，替换插件文件夹内的发布文件并重新启用插件；重新运行安装脚本即可更新快速操作。卸载时，禁用并移除插件，删除 `~/Library/Services/用 Obsidian 导出 PDF.workflow`。
+通过社区目录安装的插件可在 **设置 → 第三方插件 → 检查更新** 中找到 Finder PDF 并点击 **更新**。手动安装时，替换插件文件夹内的发布文件并重新启用插件。更新快速操作时重新运行生成脚本。卸载时，禁用并移除插件，删除 `~/Library/Services/用 Obsidian 导出 PDF.workflow`。
 
 ## 兼容性与限制
 
@@ -47,6 +63,8 @@ python3 scripts/finder-action.py --vault '你的仓库名称' --language zh \
 ## 文件与网络访问
 
 插件按 Finder 请求读取仓库外 Markdown 及其引用资源，在源目录写入新的 PDF，必要时使用编号名称，随后清理本次导出的临时文件。不修改笔记，不覆盖已有 PDF，不扫描全盘，无遥测、账号、上传或插件自行发起的网络请求。
+
+桌面插件使用 Node.js 文件接口校验请求中的源路径，并在仓库外保存 PDF。这是从任意 Finder 目录导出 Markdown 所需的能力，因此社区目录可能显示 **Direct Filesystem Access（直接文件访问）** 警告。[Obsidian 开发者政策](https://docs.obsidian.md/community-directory/developer-policies)允许在明确说明用途后访问仓库外文件。
 
 文档包含远程图片等资源时，Obsidian 原生渲染器可能按文档内容访问对应资源地址。插件不改变 Mermaid 或第三方渲染插件的信任、执行权限。
 
@@ -74,6 +92,7 @@ npm run package
 | [`scripts/release.py`](scripts/release.py) | 版本一致性校验、含双语说明的安装包及 SHA-256 校验值 |
 | [`tests/`](tests/) | 编号保存、并发导出、插件调用、本地化错误及工作流生成检查 |
 | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | macOS 上的自动测试、编译及打包检查 |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml) | 从 main 构建发布文件，生成来源证明并上传供发布使用 |
 
 构建输出为 Obsidian 加载的 CommonJS `main.js`，不把构建产物、依赖目录或本机配置提交到源码仓库。插件运行时没有第三方依赖，直接使用 Obsidian 和 Node.js/Electron 提供的接口。
 
@@ -94,10 +113,10 @@ npm run package
 版本变化记录在 [CHANGELOG.md](CHANGELOG.md)。发布时：
 
 1. 同步 `manifest.json`、`package.json`、`package-lock.json` 中的版本，在 `versions.json` 中维护对应的最低 Obsidian 版本，并更新 Changelog。
-2. 运行上述检查，提交源码，确认 CI 通过。标签必须与 manifest 版本完全一致，例如 `0.1.0`，不加 `v`。
-3. 在 GitHub Release 中上传 `dist/main.js`、`dist/manifest.json`、`dist/finder-pdf-版本号.zip` 和 `dist/SHA256SUMS`。前两个文件供 Obsidian 下载，ZIP 包同时提供手动安装所需的工作流生成脚本、许可证和中英文说明。
+2. 运行上述检查，提交并推送源码，确认 CI 通过。在 `main` 上运行 **Release artifacts** 流程，下载其 `finder-pdf-release` 产物，验证构建来源证明后再发布。标签必须与 manifest 版本完全一致，例如 `0.2.1`，不加 `v`。
+3. 在 GitHub Release 中上传验证过的 `main.js`、`manifest.json`、`finder-pdf-版本号.zip` 和 `SHA256SUMS`，并把标签指向构建流程使用的准确提交。Obsidian 下载前两个文件；ZIP 为 Finder 入口设置及手动安装提供脚本、许可证和双语说明。ZIP 和校验文件属于配套下载，因此目录可能提示它们不用于应用内安装。
 
-安装包采用固定文件元数据，校验值用于核对下载内容。未来提交 Obsidian 社区目录时，按[官方提交指南](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)、[开发者政策](https://docs.obsidian.md/community-directory/developer-policies)与[插件要求](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins)完成单独审核。
+安装包采用固定文件元数据，校验值用于核对下载内容；GitHub 构建证明用于验证发布文件的源码和构建流程。社区目录审核与发布遵循[官方提交指南](https://docs.obsidian.md/Plugins/Releasing/Submit%20your%20plugin)、[开发者政策](https://docs.obsidian.md/community-directory/developer-policies)与[插件要求](https://docs.obsidian.md/community-directory/submission-requirements-for-plugins)。
 
 ## 许可证
 

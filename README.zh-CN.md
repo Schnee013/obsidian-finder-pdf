@@ -17,7 +17,7 @@
 
 ### 在 Obsidian 中安装（0.2.1 起）
 
-从 `0.2.1` 开始，推荐通过 [Obsidian 社区插件目录](https://community.obsidian.md/plugins/finder-pdf)安装。版本须完成目录审核并发布后，才可在 Obsidian 中安装。如果搜索暂时找不到 Finder PDF，可使用下方的手动安装方式。
+从 `0.2.1` 开始，推荐通过 [Obsidian 社区插件目录](https://community.obsidian.md/plugins/finder-pdf)安装。版本须完成目录审核并发布后，才可在 Obsidian 中安装。[官方公告](https://obsidian.md/blog/future-of-plugins/)说明，审核通过后，应用内搜索可能需要最多 24 小时才能同步。如果搜索暂时找不到 Finder PDF，可使用下方的手动安装方式。
 
 1. 在用于 PDF 渲染的仓库中打开 **设置 → 第三方插件**，按需启用第三方插件。
 2. 点击 **浏览**，搜索 **Finder PDF**。
@@ -96,7 +96,7 @@ npm run package
 
 构建输出为 Obsidian 加载的 CommonJS `main.js`，不把构建产物、依赖目录或本机配置提交到源码仓库。插件运行时没有第三方依赖，直接使用 Obsidian 和 Node.js/Electron 提供的接口。
 
-原生导出适配只在同步捕获导出对象时短暂替换 Modal 方法，并立即恢复。文件先导出到目标目录的临时文件夹，检查 PDF 头和结束标记后再保存。打印子窗口关闭后返回浏览器事件循环，再处理文件，以规避旧 Electron 的[关闭子窗口回调问题](https://github.com/electron/electron/issues/36858)。项目不复制或分发 Obsidian 的实现代码。
+原生导出适配只在同步捕获导出对象时短暂替换 Modal 方法，并立即恢复。文件先导出到目标目录的临时文件夹。打印子窗口关闭后返回浏览器事件循环，再同步完成 PDF 校验、排他编号保存和临时文件清理，以规避旧 Electron [关闭子窗口后可能丢失异步回调的问题](https://github.com/electron/electron/issues/36858)。最后的文件处理在桌面主线程上完成。项目不复制或分发 Obsidian 的实现代码。
 
 ## 验证范围
 
@@ -106,7 +106,9 @@ npm run package
 - 连续导出、已运行时导出和冷启动导出均能生成有效 PDF；窗口行为见[兼容性与限制](#兼容性与限制)。
 - 已检查中文、表格、公式、代码、提示框及相对路径图片；保留原生 Mermaid 信任提示。
 
-自动检查覆盖逐数字编号、编号空位、并发导出、已占用名称、失败保护、本地化错误、工作流元数据、菜单语言及参数编码。插件调用测试用模拟的 Obsidian 接口执行编号导出，并将请求 Electron 保存窗口或窗口激活视为失败。CI 不运行 Obsidian，不能代替原生渲染的人工验证。自动编号、英文界面、全新系统安装与其他 macOS/Obsidian 版本尚未经过人工验证。
+同一台机器上的 `0.2.2` 原生 Finder 检查验证了已有 PDF 时的两次连续导出：均生成有效的编号 PDF，源 Markdown 和原 PDF 字节保持不变，并正常清理各自的临时目录。
+
+自动检查覆盖逐数字编号、编号空位、并发导出、已占用名称、失败保护、本地化错误、工作流元数据、菜单语言及参数编码。插件调用测试用模拟的 Obsidian 接口执行编号导出，并将请求 Electron 保存窗口或窗口激活视为失败。CI 不运行 Obsidian，不能代替原生渲染验证。英文界面、全新系统安装与其他 macOS/Obsidian 版本尚未经过人工验证。
 
 ## 版本与发布
 

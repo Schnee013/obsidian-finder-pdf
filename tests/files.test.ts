@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { promises as fs } from 'node:fs';
+import fs from 'node:fs';
 import { mkdtemp, mkdir, readFile, readlink, writeFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -170,7 +170,7 @@ test('a copy failure is reported and temporary output is removed', async t => {
   const { dir, source, target } = await fixture(t);
   await writeFile(target, 'old PDF');
   const failure = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
-  t.mock.method(fs, 'copyFile', async () => { throw failure; });
+  t.mock.method(fs, 'copyFileSync', () => { throw failure; });
   await assert.rejects(savePdf(source, render), error => error === failure);
   assert.equal(await readFile(target, 'utf8'), 'old PDF');
   assert.equal((await readdir(dir)).length, 2);

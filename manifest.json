@@ -1,7 +1,7 @@
 {
   "id": "finder-pdf",
   "name": "Finder PDF",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "minAppVersion": "1.14.4",
   "description": "Export Markdown files from Finder with the native PDF renderer, including files outside your vault.",
   "author": "Schnee013",

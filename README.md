@@ -17,7 +17,7 @@ Requires macOS, Obsidian **1.14.4+**, and a local vault where community plugins 
 
 ### Install from Obsidian (0.2.1+)
 
-Starting with `0.2.1`, the preferred installation route is the [Obsidian community directory](https://community.obsidian.md/plugins/finder-pdf). A release must complete the directory's review and be published before it becomes installable in Obsidian. If Finder PDF does not appear in search yet, use the manual alternative below.
+Starting with `0.2.1`, the preferred installation route is the [Obsidian community directory](https://community.obsidian.md/plugins/finder-pdf). A release must complete the directory's review and be published before it becomes installable in Obsidian. App search can take up to 24 hours to reflect a successful review, according to the [official announcement](https://obsidian.md/blog/future-of-plugins/). If Finder PDF does not appear in search yet, use the manual alternative below.
 
 1. Open **Settings → Community plugins** in the vault you want to use for PDF rendering. Turn on community plugins if needed.
 2. Select **Browse** and search for **Finder PDF**.
@@ -96,7 +96,7 @@ npm run package
 
 The build produces the CommonJS `main.js` loaded by Obsidian. Build output, dependencies, and local configuration are kept out of the source repository. The plugin has no third-party runtime dependencies; it uses the interfaces provided by Obsidian and Node.js/Electron.
 
-The native adapter briefly replaces a Modal method while synchronously capturing the exporter, then restores it immediately. Files are first exported to a temporary folder in the destination directory. The PDF header and end marker are checked before saving. After the print window closes, file processing resumes on the browser event loop to avoid an older Electron [child-window callback issue](https://github.com/electron/electron/issues/36858). The project does not copy or distribute Obsidian's implementation code.
+The native adapter briefly replaces a Modal method while synchronously capturing the exporter, then restores it immediately. Files are first exported to a temporary folder in the destination directory. After the print window closes, processing resumes on the browser event loop. PDF validation, exclusive numbered copying, and cleanup then use synchronous filesystem operations to avoid an older Electron [child-window callback issue](https://github.com/electron/electron/issues/36858) that can leave asynchronous operations unfinished. This final file-processing step runs on the desktop main thread. The project does not copy or distribute Obsidian's implementation code.
 
 ## Validation scope
 
@@ -106,7 +106,9 @@ Manual validation of the original 0.1.0 exporter: macOS 26.0.1, Obsidian 1.14.4 
 - Consecutive exports, exports with the app running, and cold-start exports produced valid PDFs. Window behavior is described under [Compatibility and limitations](#compatibility-and-limitations).
 - Chinese text, tables, math, code, callouts, and relative-path images were checked. Native Mermaid trust prompts were retained.
 
-Automated checks cover ascending filename numbering, gaps, concurrent exports, occupied names, failure protection, localized errors, workflow metadata, menu languages, and argument encoding. A plugin integration test uses mocked Obsidian interfaces to exercise numbered exports and rejects Electron dialog or window-focus requests. CI does not run Obsidian and cannot replace manual checks of native rendering. Automatic numbering, the English interface, a fresh system installation, and other macOS/Obsidian versions have not been manually validated.
+Native Finder checks of `0.2.2` on the same machine verified two consecutive exports with existing PDFs. Both saved valid numbered PDFs, preserved the original Markdown and PDF bytes, and cleaned their own temporary directories.
+
+Automated checks cover ascending filename numbering, gaps, concurrent exports, occupied names, failure protection, localized errors, workflow metadata, menu languages, and argument encoding. A plugin integration test uses mocked Obsidian interfaces to exercise numbered exports and rejects Electron dialog or window-focus requests. CI does not run Obsidian and cannot replace checks of native rendering. The English interface, a fresh system installation, and other macOS/Obsidian versions have not been manually validated.
 
 ## Versions and releases
 

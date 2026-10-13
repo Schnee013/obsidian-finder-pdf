@@ -2,6 +2,11 @@
 
 Versions follow [Semantic Versioning](https://semver.org/). During `0.x`, compatibility is described in each release's notes.
 
+## [0.2.2] - 2026-10-13
+
+- Complete PDF validation, exclusive numbered saving, and temporary-file cleanup synchronously after native printing. This avoids lost asynchronous filesystem callbacks after the print child window closes on older Electron installers, which could leave an export unfinished and block the next request.
+- Preserve existing PDFs, ascending collision numbering, and one render per export.
+
 ## [0.2.1] - 2026-10-13
 
 - Add Obsidian community-directory search, installation, update, and Finder setup instructions in English and Chinese.
@@ -34,3 +39,4 @@ Supported environments, cold-start window behavior, and internal API limitations
 [0.1.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.1.0
 [0.2.0]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.0
 [0.2.1]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.1
+[0.2.2]: https://github.com/Schnee013/obsidian-finder-pdf/releases/tag/0.2.2

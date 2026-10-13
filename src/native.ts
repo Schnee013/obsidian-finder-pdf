@@ -62,7 +62,8 @@ export async function renderNative(app: App, file: TFile, filepath: string, mess
   finally {
     modal.containerEl.remove();
     // Older Electron can drop Node fs callbacks while a print child window closes.
-    // Resume on the browser's task queue after teardown, before touching files again.
+    // Resume on the browser's task queue after teardown; files.ts then finishes
+    // validation, saving and cleanup without asynchronous filesystem callbacks.
     // https://github.com/electron/electron/issues/36858
     await new Promise<void>(resolve => window.setTimeout(resolve, 100));
   }
